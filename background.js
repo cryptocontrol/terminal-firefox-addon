@@ -1,3 +1,9 @@
+const allowedOrigins = [
+	'https://terminal-test.cryptocontrol.io',
+	'https://terminal.cryptocontrol.io',
+	'http://localhost:3000'
+]
+
 //************************************************************* class definition
 var spenibus_corsEverywhere = {
 
@@ -189,31 +195,20 @@ var spenibus_corsEverywhere = {
     ***/
     ,responseHandler : function(response) {
 
+
         // get transaction
         let transaction = spenibus_corsEverywhere.transactions[response.requestId];
 
         // processing flag
-        let doProcess = true;
+        let doProcess = false;
 
-        // check activation whitelist
-        if(spenibus_corsEverywhere.activationWhitelistEnabled) {
-
-            // disable flag
-            doProcess = false;
-
-            for(let filter of spenibus_corsEverywhere.prefs.activationWhitelist) {
-
-                // looks like I don't need to do any escaping, cool
-                let pattern = filter.match(/^\/(.*)\/([a-z]*)$/i);
-                pattern = new RegExp(pattern[1], pattern[2]);
-
-                // stop at first match, enable f1ag
-                if(transaction.request.originUrl.match(pattern)) {
-                    doProcess = true;
-                    break;
-                }
-            }
-        }
+        allowedOrigins.forEach((obj) => {
+          if(transaction.request.originUrl.indexOf(obj) === 0) {
+            console.log(transaction.request.originUrl);
+            doProcess = true;
+            break;
+          }
+        })
 
         // modify the headers
         if(doProcess) {

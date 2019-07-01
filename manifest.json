@@ -18,9 +18,9 @@
     }
 
     ,"browser_action" : {
-         "default_title" : "CORS Everywhere"
+         "default_title" : "CryptoControl Plugin"
         ,"default_icon"  : {
-            "48" : "media/image.png"
+            "48" : "media/image-on.png"
         }
     }
 
@@ -30,8 +30,5 @@
     }
 
     ,"applications": {
-        "gecko": {
-            "id": "cors-everywhere@spenibus"
-        }
     }
 }

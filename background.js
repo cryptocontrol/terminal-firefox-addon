@@ -199,14 +199,14 @@ var spenibus_corsEverywhere = {
         // get transaction
         let transaction = spenibus_corsEverywhere.transactions[response.requestId];
 
-        // processing flag
+        //processing flag
         let doProcess = false;
 
         allowedOrigins.forEach((obj) => {
           if(transaction.request.originUrl.indexOf(obj) === 0) {
             console.log(transaction.request.originUrl);
             doProcess = true;
-            break;
+            //break;
           }
         })
 

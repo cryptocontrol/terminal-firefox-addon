@@ -1,0 +1,1 @@
+zip plugin.zip media/* *.js *.json

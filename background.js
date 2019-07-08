@@ -1,242 +1,195 @@
 const allowedOrigins = [
-	'https://terminal-test.cryptocontrol.io',
-	'https://terminal.cryptocontrol.io',
-	'http://localhost:3000'
+    'https://terminal-test.cryptocontrol.io',
+    'https://terminal.cryptocontrol.io',
+    'http://localhost:3000'
 ]
 
-//************************************************************* class definition
-var spenibus_corsEverywhere = {
 
+var CCIO = {
+    enabled: false,
+    activationWhitelistEnabled: false,
 
-    /***************************************************************************
-    props
-    ***/
-    enabled                     : false
-    ,activationWhitelistEnabled : false
-    ,prefs                      : {} // holds user prefs
-    ,transactions               : {} // contains requests/responses
+    // holds user prefs
+    prefs: {},
 
+    // contains requests/responses
+    transactions: {},
 
-    /***************************************************************************
-    init
-    ***/
-    ,init : function() {
-
+    init: function () {
         // toggle activation on button click
-        browser.browserAction.onClicked.addListener(function(){
-            spenibus_corsEverywhere.toggle();
-        });
+        browser.browserAction.onClicked.addListener(function () { CCIO.toggle(); });
 
         // load prefs
-        spenibus_corsEverywhere.loadPrefs(function(){
+        CCIO.loadPrefs(function () {
             // enact enabled at startup
-            if(spenibus_corsEverywhere.prefs.enabledAtStartup) {
-                spenibus_corsEverywhere.toggle(true);
-            }
+            if (CCIO.prefs.enabledAtStartup) CCIO.toggle(true);
 
             // update button
-            spenibus_corsEverywhere.updateButton();
+            CCIO.updateButton();
         });
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    toggle
-    ***/
-    ,toggle : function(state) {
-
+    toggle: function(state) {
         // set state by input
-        if(typeof state === 'boolean') {
-            spenibus_corsEverywhere.enabled = state;
-        }
+        if (typeof state === 'boolean') CCIO.enabled = state;
+
         // set state by toggle
-        else {
-            spenibus_corsEverywhere.enabled = !spenibus_corsEverywhere.enabled;
-        }
+        else CCIO.enabled = !CCIO.enabled;
 
         // update button
-        spenibus_corsEverywhere.updateButton();
+        CCIO.updateButton();
 
         // clear transactions
-        spenibus_corsEverywhere.transactions = {};
+        CCIO.transactions = {};
 
         // add observer, observe http responses
-        if(spenibus_corsEverywhere.enabled) {
-
+        if (CCIO.enabled) {
             browser.webRequest.onBeforeSendHeaders.addListener(
-                spenibus_corsEverywhere.requestHandler
-                ,{urls: ["<all_urls>"]}
-                ,["blocking" ,"requestHeaders"]
+                CCIO.requestHandler, { urls: ["<all_urls>"] }, ["blocking", "requestHeaders"]
             );
 
             browser.webRequest.onHeadersReceived.addListener(
-                spenibus_corsEverywhere.responseHandler
-                ,{urls: ["<all_urls>"]}
-                ,["blocking" ,"responseHeaders"]
+                CCIO.responseHandler, { urls: ["<all_urls>"] }, ["blocking", "responseHeaders"]
             );
         }
 
         // remove observer
         else {
-
-            browser.webRequest.onBeforeSendHeaders.removeListener(
-                spenibus_corsEverywhere.requestHandler
-            );
-
-            browser.webRequest.onHeadersReceived.removeListener(
-                spenibus_corsEverywhere.responseHandler
-            );
+            browser.webRequest.onBeforeSendHeaders.removeListener(CCIO.requestHandler);
+            browser.webRequest.onHeadersReceived.removeListener(CCIO.responseHandler);
         }
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    re/load preferences
-    Because fetching prefs returns a promise, we use a callback to do stuff when
-    the promise is fullfilled.
-    ***/
-    ,loadPrefs : function(callback) {
-
+    /**
+     * re/load preferences Because fetching prefs returns a promise, we use a
+     * callback to do stuff when the promise is fullfilled.
+     *
+     * @param {*} callback
+     */
+    loadPrefs: function(callback) {
         browser.storage.sync.get([
-            'enabledAtStartup',
-            'staticOrigin',
-            'activationWhitelist',
+            'activationWhitelist', 'enabledAtStartup', 'staticOrigin'
         ]).then((res) => {
-
             // get prefs, set default value if n/a
-            spenibus_corsEverywhere.prefs.enabledAtStartup    = res.enabledAtStartup    || false;
-            spenibus_corsEverywhere.prefs.staticOrigin        = res.staticOrigin        || '';
-            spenibus_corsEverywhere.prefs.activationWhitelist = res.activationWhitelist || '';
+            CCIO.prefs.enabledAtStartup = res.enabledAtStartup || false;
+            CCIO.prefs.staticOrigin = res.staticOrigin || '';
+            CCIO.prefs.activationWhitelist = res.activationWhitelist || '';
 
             // parse activation whitelist
-            spenibus_corsEverywhere.prefs.activationWhitelist = spenibus_corsEverywhere.prefs.activationWhitelist
-                ? spenibus_corsEverywhere.prefs.activationWhitelist.split(/[\r\n]+/)
-                : [];
+            CCIO.prefs.activationWhitelist = CCIO.prefs.activationWhitelist ?
+                CCIO.prefs.activationWhitelist.split(/[\r\n]+/) :
+                [];
 
-            spenibus_corsEverywhere.activationWhitelistEnabled = spenibus_corsEverywhere.prefs.activationWhitelist.length > 0
-                ? true
-                : false;
+            CCIO.activationWhitelistEnabled = CCIO.prefs.activationWhitelist.length > 0;
 
-            if(callback) {
-                callback();
-            }
+            if (callback) callback();
         });
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    updateButton
-    ***/
-    ,updateButton : function() {
-
+    updateButton: function () {
         // icon
-        let buttonStatus = spenibus_corsEverywhere.enabled ? 'on' : 'off';
+        let buttonStatus = CCIO.enabled ? 'on' : 'off';
 
         // tooltip text
-        let buttonTitle = spenibus_corsEverywhere.enabled
-            ? 'CorsE enabled, CORS rules are bypassed'
-            : 'CorsE disabled, CORS rules are followed';
+        let buttonTitle = CCIO.enabled ?
+            'CorsE enabled, CORS rules are bypassed' :
+            'CorsE disabled, CORS rules are followed';
 
         // using activation whitelist while enabled
-        if(spenibus_corsEverywhere.enabled && spenibus_corsEverywhere.activationWhitelistEnabled) {
-            buttonStatus =  'on-filter';
-            buttonTitle  += ' (using activation whitelist)';
+        if (CCIO.enabled && CCIO.activationWhitelistEnabled) {
+            buttonStatus = 'on-filter';
+            buttonTitle += ' (using activation whitelist)';
         }
 
         // proceed
-        browser.browserAction.setIcon({path:{48:'media/image-'+buttonStatus+'.png'}});
-        browser.browserAction.setTitle({title:buttonTitle});
+        browser.browserAction.setIcon({
+            path: {
+                48: 'media/image-' + buttonStatus + '.png'
+            }
+        });
+
+        browser.browserAction.setTitle({ title: buttonTitle });
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    requestHandler
-    ***/
-    ,requestHandler : function(request) {
-
+    requestHandler: function(request) {
         // prepare transaction, store transaction request
         let transaction = {
-             request         : request
-            ,requestHeaders  : {}
-            ,response        : {}
-            ,responseHeaders : {}
+            request: request,
+            requestHeaders: {},
+            response: {},
+            responseHeaders: {}
         };
 
         // shorthand access to request headers
-        for(let header of request.requestHeaders) {
+        for (let header of request.requestHeaders) {
             transaction.requestHeaders[header.name.toLowerCase()] = header;
         }
 
         // store transaction
-        spenibus_corsEverywhere.transactions[request.requestId] = transaction;
+        CCIO.transactions[request.requestId] = transaction;
 
         // force origin based on prefs
-        if(bg.prefs.staticOrigin) {
+        if (bg.prefs.staticOrigin) {
             transaction.requestHeaders['origin'].value = bg.prefs.staticOrigin;
         }
 
         // apply modifications
         return {
-            requestHeaders : transaction.request.requestHeaders
+            requestHeaders: transaction.request.requestHeaders
         };
-    }
+    },
 
 
-    /***************************************************************************
-    responseHandler
-    ***/
-    ,responseHandler : function(response) {
-
-
+    responseHandler: function(response) {
         // get transaction
-        let transaction = spenibus_corsEverywhere.transactions[response.requestId];
+        let transaction = CCIO.transactions[response.requestId];
 
         //processing flag
         let doProcess = false;
 
         allowedOrigins.forEach((obj) => {
-          if(transaction.request.originUrl.indexOf(obj) === 0) {
-            console.log(transaction.request.originUrl);
-            doProcess = true;
-            //break;
-          }
+            if (transaction.request.originUrl.indexOf(obj) === 0) {
+                console.log(transaction.request.originUrl);
+                doProcess = true;
+                //break;
+            }
         })
 
         // modify the headers
-        if(doProcess) {
-
+        if (doProcess) {
             // store transaction response
             transaction.response = response;
 
             // shorthand access to response headers
-            for(let header of response.responseHeaders) {
+            for (let header of response.responseHeaders) {
                 transaction.responseHeaders[header.name.toLowerCase()] = header;
             }
 
             // create response headers if necessary
-            for(let name of [
-                 'access-control-allow-origin'
-                ,'access-control-allow-methods'
-                ,'access-control-allow-headers'
-                ,'access-control-allow-credentials'
-            ]) {
+            for (let name of [
+                    'access-control-allow-origin', 'access-control-allow-methods', 'access-control-allow-headers', 'access-control-allow-credentials'
+                ]) {
                 // header exists, skip
-                if(transaction.responseHeaders[name]) {
+                if (transaction.responseHeaders[name]) {
                     continue;
                 }
 
                 // create header
                 let header = {
-                     name  : name
-                    ,value : "null"
+                    name: name,
+                    value: "null"
                 };
 
                 // update response
@@ -248,24 +201,24 @@ var spenibus_corsEverywhere = {
 
             // set "access-control-allow-origin", prioritize "origin" else "*"
             transaction.responseHeaders['access-control-allow-origin'].value =
-                transaction.requestHeaders['origin']
-                && transaction.requestHeaders['origin'].value !== null
-                    ? transaction.requestHeaders['origin'].value
-                    : '*';
+                transaction.requestHeaders['origin'] &&
+                transaction.requestHeaders['origin'].value !== null ?
+                transaction.requestHeaders['origin'].value :
+                '*';
 
             // set "access-control-allow-methods"
-            if(
-                transaction.requestHeaders['access-control-request-method']
-                && transaction.requestHeaders['access-control-request-method'].value !== null
+            if (
+                transaction.requestHeaders['access-control-request-method'] &&
+                transaction.requestHeaders['access-control-request-method'].value !== null
             ) {
                 transaction.responseHeaders['access-control-allow-methods'].value =
                     transaction.requestHeaders['access-control-request-method'].value
             }
 
             // set "access-control-allow-headers"
-            if(
-                transaction.requestHeaders['access-control-request-headers']
-                && transaction.requestHeaders['access-control-request-headers'].value !== null
+            if (
+                transaction.requestHeaders['access-control-request-headers'] &&
+                transaction.requestHeaders['access-control-request-headers'].value !== null
             ) {
                 transaction.responseHeaders['access-control-allow-headers'].value =
                     transaction.requestHeaders['access-control-request-headers'].value
@@ -276,7 +229,7 @@ var spenibus_corsEverywhere = {
         }
 
         // delete transaction
-        delete spenibus_corsEverywhere.transactions[response.requestId];
+        delete CCIO.transactions[response.requestId];
 
         // return headers
         return {
@@ -288,5 +241,4 @@ var spenibus_corsEverywhere = {
 
 
 
-//************************************************************************** run
-var bg = spenibus_corsEverywhere.init();
+var bg = CCIO.init();

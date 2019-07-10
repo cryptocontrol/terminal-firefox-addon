@@ -4,6 +4,13 @@ const allowedOrigins = [
     'http://localhost:3000'
 ]
 
+function messagePageScript() {
+  window.postMessage({
+    direction: 'from-content-script',
+    message: 'Message from the content script'
+  }, "*")
+}
+
 
 var CCIO = {
     enabled: false,
@@ -47,6 +54,9 @@ var CCIO = {
 
         // add observer, observe http responses
         if (CCIO.enabled) {
+
+						messagePageScript()
+						
             browser.webRequest.onBeforeSendHeaders.addListener(
                 CCIO.requestHandler, { urls: ["<all_urls>"] }, ["blocking", "requestHeaders"]
             );

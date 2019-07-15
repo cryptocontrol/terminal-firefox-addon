@@ -4,6 +4,11 @@
     "version": "1.0.0",
     "author": "developers@cryptocontrol.io",
     "description": "Addon to be used for the for the CryptoControl terminal.",
+    "icons": {
+      "16": "cryptocontrol.png",
+      "48": "cryptocontrol.png",
+      "128": "cryptocontrol.png"
+    },
     "permissions": [
         "webRequest",
         "webRequestBlocking",

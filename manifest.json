@@ -20,6 +20,13 @@
             "background.js"
         ]
     },
+    "content_scripts": [
+      {
+        "run_at": "document_end",
+        "matches": ["*://cryptocontrol.io/*", "*://*.cryptocontrol.io/*", "*://localhost/*"],
+        "js": ["content-script.js"]
+      }
+    ],
     "browser_action": {
         "default_title": "CryptoControl Plugin",
         "default_icon": {

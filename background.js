@@ -4,13 +4,14 @@ const allowedOrigins = [
 	'http://localhost:3000'
 ]
 
+
 //************************************************************* class definition
-var spenibus_corsEverywhere = {
+var corsEverywhere = {
 
 
     /***************************************************************************
     props
-    ***/
+    ***/ 
     enabled                     : false
     ,activationWhitelistEnabled : false
     ,prefs                      : {} // holds user prefs
@@ -24,18 +25,22 @@ var spenibus_corsEverywhere = {
 
         // toggle activation on button click
         browser.browserAction.onClicked.addListener(function(){
-            spenibus_corsEverywhere.toggle();
+            corsEverywhere.toggle();
+						browser.tabs.query({
+					    currentWindow: true,
+					    active: true
+					  }).then(sendMessageToTabs)//.catch(error => console.error(error));
         });
 
         // load prefs
-        spenibus_corsEverywhere.loadPrefs(function(){
+        corsEverywhere.loadPrefs(function(){
             // enact enabled at startup
-            if(spenibus_corsEverywhere.prefs.enabledAtStartup) {
-                spenibus_corsEverywhere.toggle(true);
+            if(corsEverywhere.prefs.enabledAtStartup) {
+                corsEverywhere.toggle(true);
             }
 
             // update button
-            spenibus_corsEverywhere.updateButton();
+            corsEverywhere.updateButton();
         });
 
         return this;
@@ -49,30 +54,30 @@ var spenibus_corsEverywhere = {
 
         // set state by input
         if(typeof state === 'boolean') {
-            spenibus_corsEverywhere.enabled = state;
+            corsEverywhere.enabled = state;
         }
         // set state by toggle
         else {
-            spenibus_corsEverywhere.enabled = !spenibus_corsEverywhere.enabled;
+            corsEverywhere.enabled = !corsEverywhere.enabled;
         }
 
         // update button
-        spenibus_corsEverywhere.updateButton();
+        corsEverywhere.updateButton();
 
         // clear transactions
-        spenibus_corsEverywhere.transactions = {};
+        corsEverywhere.transactions = {};
 
         // add observer, observe http responses
-        if(spenibus_corsEverywhere.enabled) {
+        if(corsEverywhere.enabled) {
 
             browser.webRequest.onBeforeSendHeaders.addListener(
-                spenibus_corsEverywhere.requestHandler
+                corsEverywhere.requestHandler
                 ,{urls: ["<all_urls>"]}
                 ,["blocking" ,"requestHeaders"]
             );
 
             browser.webRequest.onHeadersReceived.addListener(
-                spenibus_corsEverywhere.responseHandler
+                corsEverywhere.responseHandler
                 ,{urls: ["<all_urls>"]}
                 ,["blocking" ,"responseHeaders"]
             );
@@ -82,11 +87,11 @@ var spenibus_corsEverywhere = {
         else {
 
             browser.webRequest.onBeforeSendHeaders.removeListener(
-                spenibus_corsEverywhere.requestHandler
+                corsEverywhere.requestHandler
             );
 
             browser.webRequest.onHeadersReceived.removeListener(
-                spenibus_corsEverywhere.responseHandler
+                corsEverywhere.responseHandler
             );
         }
 
@@ -108,16 +113,16 @@ var spenibus_corsEverywhere = {
         ]).then((res) => {
 
             // get prefs, set default value if n/a
-            spenibus_corsEverywhere.prefs.enabledAtStartup    = res.enabledAtStartup    || false;
-            spenibus_corsEverywhere.prefs.staticOrigin        = res.staticOrigin        || '';
-            spenibus_corsEverywhere.prefs.activationWhitelist = res.activationWhitelist || '';
+            corsEverywhere.prefs.enabledAtStartup    = res.enabledAtStartup    || false;
+            corsEverywhere.prefs.staticOrigin        = res.staticOrigin        || '';
+            corsEverywhere.prefs.activationWhitelist = res.activationWhitelist || '';
 
             // parse activation whitelist
-            spenibus_corsEverywhere.prefs.activationWhitelist = spenibus_corsEverywhere.prefs.activationWhitelist
-                ? spenibus_corsEverywhere.prefs.activationWhitelist.split(/[\r\n]+/)
+            corsEverywhere.prefs.activationWhitelist = corsEverywhere.prefs.activationWhitelist
+                ? corsEverywhere.prefs.activationWhitelist.split(/[\r\n]+/)
                 : [];
 
-            spenibus_corsEverywhere.activationWhitelistEnabled = spenibus_corsEverywhere.prefs.activationWhitelist.length > 0
+            corsEverywhere.activationWhitelistEnabled = corsEverywhere.prefs.activationWhitelist.length > 0
                 ? true
                 : false;
 
@@ -131,20 +136,19 @@ var spenibus_corsEverywhere = {
 
 
     /***************************************************************************
-    updateButton
+    	updateButton
     ***/
     ,updateButton : function() {
-
         // icon
-        let buttonStatus = spenibus_corsEverywhere.enabled ? 'on' : 'off';
+        let buttonStatus = corsEverywhere.enabled ? 'on' : 'off';
 
         // tooltip text
-        let buttonTitle = spenibus_corsEverywhere.enabled
+        let buttonTitle = corsEverywhere.enabled
             ? 'CorsE enabled, CORS rules are bypassed'
             : 'CorsE disabled, CORS rules are followed';
 
         // using activation whitelist while enabled
-        if(spenibus_corsEverywhere.enabled && spenibus_corsEverywhere.activationWhitelistEnabled) {
+        if (corsEverywhere.enabled && corsEverywhere.activationWhitelistEnabled) {
             buttonStatus =  'on-filter';
             buttonTitle  += ' (using activation whitelist)';
         }
@@ -176,7 +180,7 @@ var spenibus_corsEverywhere = {
         }
 
         // store transaction
-        spenibus_corsEverywhere.transactions[request.requestId] = transaction;
+        corsEverywhere.transactions[request.requestId] = transaction;
 
         // force origin based on prefs
         if(bg.prefs.staticOrigin) {
@@ -197,7 +201,7 @@ var spenibus_corsEverywhere = {
 
 
         // get transaction
-        let transaction = spenibus_corsEverywhere.transactions[response.requestId];
+        let transaction = corsEverywhere.transactions[response.requestId];
 
         //processing flag
         //let doProcess = false;
@@ -276,7 +280,7 @@ var spenibus_corsEverywhere = {
         }
 
         // delete transaction
-        delete spenibus_corsEverywhere.transactions[response.requestId];
+        delete corsEverywhere.transactions[response.requestId];
 
         // return headers
         return {
@@ -289,4 +293,4 @@ var spenibus_corsEverywhere = {
 
 
 //************************************************************************** run
-var bg = spenibus_corsEverywhere.init();
+var bg = corsEverywhere.init();

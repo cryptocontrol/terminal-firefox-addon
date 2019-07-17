@@ -5,61 +5,24 @@ const allowedOrigins = [
 ]
 
 
-//************************************************************* class definition
-var corsEverywhere = {
+const corsEverywhere = {
+    enabled: false,
+    activationWhitelistEnabled: false,
+    transactions: {},
 
-
-    /***************************************************************************
-    props
-    ***/ 
-    enabled                     : false
-    ,activationWhitelistEnabled : false
-    ,prefs                      : {} // holds user prefs
-    ,transactions               : {} // contains requests/responses
-
-
-    /***************************************************************************
-    init
-    ***/
-    ,init : function() {
-
-        // toggle activation on button click
-        browser.browserAction.onClicked.addListener(function(){
-            corsEverywhere.toggle();
-						browser.tabs.query({
-					    currentWindow: true,
-					    active: true
-					  }).then(sendMessageToTabs)//.catch(error => console.error(error));
-        });
-
-        // load prefs
-        corsEverywhere.loadPrefs(function(){
-            // enact enabled at startup
-            if(corsEverywhere.prefs.enabledAtStartup) {
-                corsEverywhere.toggle(true);
-            }
-
-            // update button
-            corsEverywhere.updateButton();
-        });
-
+    init: function() {
+        corsEverywhere.toggle(true);
+        corsEverywhere.updateButton();
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    toggle
-    ***/
-    ,toggle : function(state) {
-
+    toggle: function(state) {
         // set state by input
-        if(typeof state === 'boolean') {
-            corsEverywhere.enabled = state;
-        }
+        if (typeof state === 'boolean') corsEverywhere.enabled = state;
+
         // set state by toggle
-        else {
-            corsEverywhere.enabled = !corsEverywhere.enabled;
-        }
+        else corsEverywhere.enabled = !corsEverywhere.enabled;
 
         // update button
         corsEverywhere.updateButton();
@@ -68,84 +31,34 @@ var corsEverywhere = {
         corsEverywhere.transactions = {};
 
         // add observer, observe http responses
-        if(corsEverywhere.enabled) {
-
+        if (corsEverywhere.enabled) {
             browser.webRequest.onBeforeSendHeaders.addListener(
-                corsEverywhere.requestHandler
-                ,{urls: ["<all_urls>"]}
-                ,["blocking" ,"requestHeaders"]
+                corsEverywhere.requestHandler, {urls: ["<all_urls>"]}, ["blocking", "requestHeaders"]
             );
 
             browser.webRequest.onHeadersReceived.addListener(
-                corsEverywhere.responseHandler
-                ,{urls: ["<all_urls>"]}
-                ,["blocking" ,"responseHeaders"]
+                corsEverywhere.responseHandler, {urls: ["<all_urls>"]}, ["blocking", "responseHeaders"]
             );
         }
 
         // remove observer
         else {
-
-            browser.webRequest.onBeforeSendHeaders.removeListener(
-                corsEverywhere.requestHandler
-            );
-
-            browser.webRequest.onHeadersReceived.removeListener(
-                corsEverywhere.responseHandler
-            );
+            browser.webRequest.onBeforeSendHeaders.removeListener(corsEverywhere.requestHandler);
+            browser.webRequest.onHeadersReceived.removeListener(corsEverywhere.responseHandler);
         }
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    re/load preferences
-    Because fetching prefs returns a promise, we use a callback to do stuff when
-    the promise is fullfilled.
-    ***/
-    ,loadPrefs : function(callback) {
-
-        browser.storage.sync.get([
-            'enabledAtStartup',
-            'staticOrigin',
-            'activationWhitelist',
-        ]).then((res) => {
-
-            // get prefs, set default value if n/a
-            corsEverywhere.prefs.enabledAtStartup    = res.enabledAtStartup    || false;
-            corsEverywhere.prefs.staticOrigin        = res.staticOrigin        || '';
-            corsEverywhere.prefs.activationWhitelist = res.activationWhitelist || '';
-
-            // parse activation whitelist
-            corsEverywhere.prefs.activationWhitelist = corsEverywhere.prefs.activationWhitelist
-                ? corsEverywhere.prefs.activationWhitelist.split(/[\r\n]+/)
-                : [];
-
-            corsEverywhere.activationWhitelistEnabled = corsEverywhere.prefs.activationWhitelist.length > 0
-                ? true
-                : false;
-
-            if(callback) {
-                callback();
-            }
-        });
-
-        return this;
-    }
-
-
-    /***************************************************************************
-    	updateButton
-    ***/
-    ,updateButton : function() {
+    updateButton: function() {
         // icon
-        let buttonStatus = corsEverywhere.enabled ? 'on' : 'off';
+        let buttonStatus = corsEverywhere.enabled ? 'on': 'off';
 
         // tooltip text
         let buttonTitle = corsEverywhere.enabled
-            ? 'CorsE enabled, CORS rules are bypassed'
-            : 'CorsE disabled, CORS rules are followed';
+            ? 'Plugin enabled, CORS rules are bypassed'
+        : 'Plugin disabled, CORS rules are followed';
 
         // using activation whitelist while enabled
         if (corsEverywhere.enabled && corsEverywhere.activationWhitelistEnabled) {
@@ -158,24 +71,20 @@ var corsEverywhere = {
         browser.browserAction.setTitle({title:buttonTitle});
 
         return this;
-    }
+    },
 
 
-    /***************************************************************************
-    requestHandler
-    ***/
-    ,requestHandler : function(request) {
-
+    requestHandler: function(request) {
         // prepare transaction, store transaction request
         let transaction = {
-             request         : request
-            ,requestHeaders  : {}
-            ,response        : {}
-            ,responseHeaders : {}
+            request: request,
+            requestHeaders: {},
+            response: {},
+            responseHeaders: {}
         };
 
         // shorthand access to request headers
-        for(let header of request.requestHeaders) {
+        for (let header of request.requestHeaders) {
             transaction.requestHeaders[header.name.toLowerCase()] = header;
         }
 
@@ -183,100 +92,77 @@ var corsEverywhere = {
         corsEverywhere.transactions[request.requestId] = transaction;
 
         // force origin based on prefs
-        if(bg.prefs.staticOrigin) {
-            transaction.requestHeaders['origin'].value = bg.prefs.staticOrigin;
-        }
+        // if (bg.prefs.staticOrigin) transaction.requestHeaders['origin'].value = bg.prefs.staticOrigin;
 
         // apply modifications
-        return {
-            requestHeaders : transaction.request.requestHeaders
-        };
-    }
+        return { requestHeaders: transaction.request.requestHeaders };
+    },
 
 
-    /***************************************************************************
-    responseHandler
-    ***/
-    ,responseHandler : function(response) {
-
-
+    responseHandler: function(response) {
         // get transaction
-        let transaction = corsEverywhere.transactions[response.requestId];
+        let tx = corsEverywhere.transactions[response.requestId];
 
-        //processing flag
-        //let doProcess = false;
+        // processing flag
+        let doProcess = false;
 
         allowedOrigins.forEach((obj) => {
-          if(transaction.request.originUrl.indexOf(obj) === 0) {
-            //console.log(transaction.request.originUrl);
-            doProcess = true;
-            //break;
-          }
+          if (tx.request.originUrl.indexOf(obj) === 0) doProcess = true;
         })
 
         // modify the headers
-        if(doProcess) {
-
+        if (doProcess) {
             // store transaction response
-            transaction.response = response;
+            tx.response = response;
 
             // shorthand access to response headers
-            for(let header of response.responseHeaders) {
-                transaction.responseHeaders[header.name.toLowerCase()] = header;
+            for (let header of response.responseHeaders) {
+                tx.responseHeaders[header.name.toLowerCase()] = header;
             }
 
             // create response headers if necessary
-            for(let name of [
-                 'access-control-allow-origin'
-                ,'access-control-allow-methods'
-                ,'access-control-allow-headers'
-                ,'access-control-allow-credentials'
-            ]) {
+            for (let name of ['access-control-allow-origin', 'access-control-allow-methods',
+                'access-control-allow-headers', 'access-control-allow-credentials']) {
                 // header exists, skip
-                if(transaction.responseHeaders[name]) {
-                    continue;
-                }
+                if (tx.responseHeaders[name]) continue;
 
                 // create header
-                let header = {
-                     name  : name
-                    ,value : "null"
-                };
+                let header = { name: name, value: "null" };
 
                 // update response
-                transaction.response.responseHeaders.push(header)
+                tx.response.responseHeaders.push(header)
 
                 // update shorthand
-                transaction.responseHeaders[name] = header;
+                tx.responseHeaders[name] = header;
             }
 
             // set "access-control-allow-origin", prioritize "origin" else "*"
-            transaction.responseHeaders['access-control-allow-origin'].value =
-                transaction.requestHeaders['origin']
-                && transaction.requestHeaders['origin'].value !== null
-                    ? transaction.requestHeaders['origin'].value
-                    : '*';
+            tx.responseHeaders['access-control-allow-origin'].value =
+                tx.requestHeaders['origin']
+                && tx.requestHeaders['origin'].value !== null
+                    ? tx.requestHeaders['origin'].value
+                : '*';
 
             // set "access-control-allow-methods"
-            if(
-                transaction.requestHeaders['access-control-request-method']
-                && transaction.requestHeaders['access-control-request-method'].value !== null
+            if (
+                tx.requestHeaders['access-control-request-method']
+                && tx.requestHeaders['access-control-request-method'].value !== null
             ) {
-                transaction.responseHeaders['access-control-allow-methods'].value =
-                    transaction.requestHeaders['access-control-request-method'].value
+                tx.responseHeaders['access-control-allow-methods'].value =
+                    tx.requestHeaders['access-control-request-method'].value
             }
 
             // set "access-control-allow-headers"
-            if(
-                transaction.requestHeaders['access-control-request-headers']
-                && transaction.requestHeaders['access-control-request-headers'].value !== null
+            if (
+                tx.requestHeaders['access-control-request-headers']
+                && tx.requestHeaders['access-control-request-headers'].value !== null
             ) {
-                transaction.responseHeaders['access-control-allow-headers'].value =
-                    transaction.requestHeaders['access-control-request-headers'].value
+                tx.responseHeaders['access-control-allow-headers'].value =
+                    tx.requestHeaders['access-control-request-headers'].value
             }
 
             // set "access-control-allow-credentials"
-            transaction.responseHeaders['access-control-allow-credentials'].value = "true";
+            tx.responseHeaders['access-control-allow-credentials'].value = "true";
         }
 
         // delete transaction
@@ -284,13 +170,10 @@ var corsEverywhere = {
 
         // return headers
         return {
-            responseHeaders: transaction.response.responseHeaders
+            responseHeaders: tx.response.responseHeaders
         };
     }
 };
 
 
-
-
-//************************************************************************** run
-var bg = corsEverywhere.init();
+const bg = corsEverywhere.init();
